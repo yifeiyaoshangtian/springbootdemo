@@ -1,0 +1,6 @@
+#rabbitmq相关配置
+spring:
+  rabbitmq:
+    host: 129.204.36.221
+    username: guest
+    password: guest
