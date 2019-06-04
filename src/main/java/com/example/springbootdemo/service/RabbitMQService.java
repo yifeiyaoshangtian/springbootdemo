@@ -1,6 +1,8 @@
 package com.example.springbootdemo.service;
 
 import com.example.springbootdemo.param.RabbitMQParam;
+import org.springframework.amqp.core.*;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -9,11 +11,33 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * 自动配置
+ * 1.RabbitAutoConfiguration
+ * 2.有自动配置了连接工厂ConnectionFactory;
+ * 3.RabbitProperties 封装了RabbitMQ的配置
+ * 4.RabbitTemplate:给RabbitMQ发送和接受消息
+ * 5.AmqpAdmin:RabbitMQ系统管理功能组件
+ *   AmqpAdmin:创建和删除Queue，Exchange，Binding
+ * 6.@EnableRabbit + @RabbitListener监听消息队列的内容
+ */
 @Service
 public class RabbitMQService {
 
     @Autowired
     private RabbitTemplate rabbitTemplate;
+
+    @Autowired
+    private AmqpAdmin amqpAdmin;
+
+    //此方法可在test下运行观看效果，以下仅是举例子，不止一种，可观看源码操作
+    public void declare(){
+        amqpAdmin.declareExchange(new DirectExchange("amqpadmin.exchange"));//创建交换机
+        amqpAdmin.declareQueue(new Queue("amqpadmin.queue",true));//创建队列
+        //创建交换机与队列的绑定规则
+        amqpAdmin.declareBinding(new Binding("amqpadmin.queue", Binding.DestinationType.QUEUE,"amqpadmin.exchange","amqp.haha",null));
+    }
+
 
     /**
      * 发送消息到rabbitmq服务器上
@@ -41,9 +65,8 @@ public class RabbitMQService {
 
     /**
      * 从rabbitmq服务器上接受消息
-     * 执行一次，消费一个数据，自行上网怎么做才能有就消费？？?
+     * 执行一次，消费一个数据
      * 如果队列无数据，获取对象将为null，注意抛出异常或者非空处理后再时候
-     *
      */
     public void receive(){
         //监听队列，消费数据
@@ -52,6 +75,25 @@ public class RabbitMQService {
             System.out.println(object.getClass());//打印数据类型，class java.util.HashMap
             System.out.println(object);//打印数据，{msg=这是第一个消息, data=[helloworld, 123, true]}
         }
+    }
+
+    /**
+     * @RabbitListener 中的参数queues是数组，可以同时监听多个队列
+     * 此注解@RabbitListener结合启动类上的注解@EnableRabbit，开启实时监听队列
+     * 一有消息即可执行方法体内容，消费消息
+     */
+
+    //此方法如果接受到的消息不是RabbitMQParam类型的将报错，要出处理
+    @RabbitListener(queues = "atguigu.emps")
+    public void receive01(RabbitMQParam rabbitMQParam){
+        System.out.println("收到消息："+rabbitMQParam);
+    }
+
+    @RabbitListener(queues = "atguigu")
+    public void receive02(Message message){
+        //因为自定义的json转换器的原因，取出的数据是特殊字符串，怎么解决？自行上网查找
+        System.out.println("消息体"+message.getBody());
+        System.out.println("消息头"+message.getMessageProperties());
     }
 
     /**在test上对service层方法的测试
